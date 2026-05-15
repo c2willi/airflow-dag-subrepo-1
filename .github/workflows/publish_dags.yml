@@ -1,0 +1,57 @@
+name: Publish Dags
+
+on:
+  workflow_call:
+    inputs:
+      target_repo: 
+        description: 'Aggregator repo (e.g. /airflow-dag-repo-mono)'
+        required: true
+        type: string
+      target_subdir:
+        description: 'Path inside the target repo to publish into (e.g. dags/subrepo-1)'
+        required: true
+        type: string
+      source_path: 
+        description: 'Path inside the source repo to publish from'
+        required: true
+        type: string      
+      target_branch:
+        description: 'Branch on the target repo to publish to'
+        required: true
+        default: 'develop'
+        type: string
+      secrets:
+        DAG_PUBLISH_TOKEN:
+          description: 'Token with contents:write on target_repo'
+          required: true
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps: 
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          path: source
+          
+      - name: Checkout target reposource repo
+        uses: actions/checkout@v4
+        with:
+          path: target
+          repository: ${{ inputs.target_repo }}
+          ref: ${{ inputs.target_branch }}
+          token: ${{ secrets.DAG_PUBLISH_TOKEN }}
+          fetch-depth: 0
+          
+      - name: Sync DAG files
+        run: | 
+          set -euo pipefail
+          src="source/{{ inputs.source_path }}
+          dest="target/{{ inputs.target_subdir }}
+
+          if [ ! -d "$src" ]; then
+            echo "Source path '$src' does not exist in caller repo. Nothing to publish"
+            exit 0
+          fi
+
+          mkdir -p "$dest"
+                              
