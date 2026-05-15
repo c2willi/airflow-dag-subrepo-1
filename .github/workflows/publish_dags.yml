@@ -75,12 +75,13 @@ jobs:
           git config user.name "airflow-dag-publisher[bot]"
           git config user.email "airflow-dag-publisher@bnsf.com"
 
+          git add -A
+
           if git diff --quiet && git diff --cached --quiet; then
             echo "No DAG changes to publish."
             exit 0
           fi
 
-          git add -A
           git commit \
             -m "publish(${TARGET_SUBDIR}): ${SRC_REPO}@${SRC_SHA:0:7}" \
             -m "Source repo:    ${SRC_REPO}" \
