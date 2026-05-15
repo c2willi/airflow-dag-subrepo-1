@@ -51,8 +51,8 @@ jobs:
           echo "=== source/ ==="
           ls -la source
           echo 
-          echo "=== source/dags/ ==="
-          ls -la source/dags/ || echo "(no dags/ dir)"
+          echo "=== source/dag/ ==="
+          ls -la source/dag/ || echo "(no dags/ dir)"
 
           echo "=== target/ ==="
           ls -la target
