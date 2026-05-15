@@ -10,7 +10,7 @@ env:
   TARGET_REPO: c2willi/airflow-dag-monorepo
   TARGET_SUBDIR: dags/subrepo-1
   TARGET_BRANCH: develop
-  SOURCE_PATH: dags/
+  SOURCE_PATH: dag/
 
 jobs:
   publish: 
