@@ -24,6 +24,7 @@ on:
         DAG_PUBLISH_TOKEN:
           description: 'Token with contents:write on target_repo'
           required: true
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -55,3 +56,52 @@ jobs:
 
           mkdir -p "$dest"
                               
+
+      - name: Commit and push
+        working-directory: target
+        env:
+          SRC_REPO: ${{ github.repository }}
+          SRC_SHA: ${{ github.sha }}
+          SRC_REF: ${{ github.ref_name }}
+          BRANCH: ${{ inputs.target_branch }}
+          SUBDIR: ${{ inputs.target_subdir }}
+        run: | 
+          set -euo pipefail
+
+          git config user.name "airflow-dag-publisher[bot]"
+          git config user.email "airflow-dag-publisher@bnsf.com"
+
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No DAG changes to publish."
+            exit 0
+          fi
+
+          git add -A
+          git commit \
+            -m "publish(${SUBDIR}): ${SRC_REPO}@${SRC_SHA:0:7}" \
+            -m "Source repo:    ${SRC_REPO}" \
+            -m "Source commit:  ${SRC_SHA}" \
+            -m "Source branch:  ${SRC_REF}" 
+
+          for attempt in 1 2 3; do
+            if git push origin "${BRANCH}"; then 
+              echo "Published on attempt ${attempt}."
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed (likely concurrent push); rebasing."
+            git fetch origin "${BRANCH}"
+            git rebase "origin/${BRANCH}"
+          done
+
+          echo "Failed to publish after 3 attempts." >&2
+          exit 1
+            
+          
+        uses: actions/checkout@v4
+        with:
+          path: target
+          repository: ${{ inputs.target_repo }}
+          ref: ${{ inputs.target_branch }}
+          token: ${{ secrets.DAG_PUBLISH_TOKEN }}
+          fetch-depth: 0
+          
