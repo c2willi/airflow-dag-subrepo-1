@@ -82,6 +82,10 @@ jobs:
             exit 0
           fi
 
+          echo "::group::files to publish::"
+          git diff --cached --name-status
+          echo "::end::"
+          
           git commit \
             -m "publish(${TARGET_SUBDIR}): ${SRC_REPO}@${SRC_SHA:0:7}" \
             -m "Source repo:    ${SRC_REPO}" \
