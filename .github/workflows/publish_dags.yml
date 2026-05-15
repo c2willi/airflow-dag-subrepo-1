@@ -3,7 +3,9 @@ name: Publish Dags
 on:
   push:
     branches: [main]
-    paths: ['\dag\*']
+    paths: 
+      - 'dag/**' 
+      - 'dags/**' 
   workflow_dispatch: 
         
 env:
