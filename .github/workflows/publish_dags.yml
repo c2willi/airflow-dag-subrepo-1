@@ -1,8 +1,104 @@
 name: Publish Dags
 
 on:
-  workflow_call:
-    inputs:
+  push:
+    branches: [main]
+    paths: ['\dags\*']
+  workflow_dispatch: 
+        
+env:
+  TARGET_REPO: c2willi/airflow-dag-monorepo
+  TARGET_SUBDIR: dags/subrepo-1
+  TARGET_BRANCH: develop
+  SOURCE_PATH: dags/
+
+jobs:
+  publish: 
+    runs-on: ubuntu-latest
+    steps: 
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          path: source
+          
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          path: target
+          repository: ${{ env.TARGET_REPO }}
+          ref: ${{ env.TARGET_BRANCH }}
+          token: ${{ secrets.DAG_PUBLISH_TOKEN }}
+          fetch-depth: 0
+          
+      - name: Sync DAG files
+        run: | 
+          set -euo pipefail
+          src="source/${SOURCE_PATH}"
+          dest="target/${TARGET_SUBDIR}"
+
+          if [ ! -d "$src" ]; then
+            echo "Source path '$src' does not exist. Nothing to publish"
+            exit 0
+          fi
+
+          mkdir -p "$dest"
+          rsync -a --delete --exclude='.git' "$src/" "$dest/"                              
+
+      - name: Commit and push
+        working-directory: target
+        env:
+          SRC_REPO: ${{ github.repository }}
+          SRC_SHA: ${{ github.sha }}
+          SRC_REF: ${{ github.ref_name }}
+          
+        run: | 
+          set -euo pipefail
+
+          git config user.name "airflow-dag-publisher[bot]"
+          git config user.email "airflow-dag-publisher@bnsf.com"
+
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No DAG changes to publish."
+            exit 0
+          fi
+
+          git add -A
+          git commit \
+            -m "publish(${TARGET_SUBDIR}): ${SRC_REPO}@${SRC_SHA:0:7}" \
+            -m "Source repo:    ${SRC_REPO}" \
+            -m "Source commit:  ${SRC_SHA}" \
+            -m "Source branch:  ${SRC_REF}" 
+
+          for attempt in 1 2 3; do
+            if git push origin "${TARGET_BRANCH}"; then 
+              echo "Published on attempt ${attempt}."
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed (likely concurrent push); rebasing."
+            git fetch origin "${BRANCH}"
+            git rebase "origin/${BRANCH}"
+          done
+
+          echo "Failed to publish after 3 attempts." >&2
+          exit 1
+            
+          
+        uses: actions/checkout@v4
+        with:
+          path: target
+          repository: ${{ inputs.target_repo }}
+          ref: ${{ inputs.target_branch }}
+          token: ${{ secrets.DAG_PUBLISH_TOKEN }}
+          fetch-depth: 0
+
+
+
+
+
+          
+  BRANCH: ${{ inputs.target_branch }}
+  SUBDIR: ${{ inputs.target_subdir }}
+
       target_repo: 
         description: 'Aggregator repo (e.g. /airflow-dag-repo-mono)'
         required: true
@@ -28,80 +124,4 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    steps: 
-      - name: Checkout source repo
-        uses: actions/checkout@v4
-        with:
-          path: source
-          
-      - name: Checkout target reposource repo
-        uses: actions/checkout@v4
-        with:
-          path: target
-          repository: ${{ inputs.target_repo }}
-          ref: ${{ inputs.target_branch }}
-          token: ${{ secrets.DAG_PUBLISH_TOKEN }}
-          fetch-depth: 0
-          
-      - name: Sync DAG files
-        run: | 
-          set -euo pipefail
-          src="source/{{ inputs.source_path }}
-          dest="target/{{ inputs.target_subdir }}
-
-          if [ ! -d "$src" ]; then
-            echo "Source path '$src' does not exist in caller repo. Nothing to publish"
-            exit 0
-          fi
-
-          mkdir -p "$dest"
-                              
-
-      - name: Commit and push
-        working-directory: target
-        env:
-          SRC_REPO: ${{ github.repository }}
-          SRC_SHA: ${{ github.sha }}
-          SRC_REF: ${{ github.ref_name }}
-          BRANCH: ${{ inputs.target_branch }}
-          SUBDIR: ${{ inputs.target_subdir }}
-        run: | 
-          set -euo pipefail
-
-          git config user.name "airflow-dag-publisher[bot]"
-          git config user.email "airflow-dag-publisher@bnsf.com"
-
-          if git diff --quiet && git diff --cached --quiet; then
-            echo "No DAG changes to publish."
-            exit 0
-          fi
-
-          git add -A
-          git commit \
-            -m "publish(${SUBDIR}): ${SRC_REPO}@${SRC_SHA:0:7}" \
-            -m "Source repo:    ${SRC_REPO}" \
-            -m "Source commit:  ${SRC_SHA}" \
-            -m "Source branch:  ${SRC_REF}" 
-
-          for attempt in 1 2 3; do
-            if git push origin "${BRANCH}"; then 
-              echo "Published on attempt ${attempt}."
-              exit 0
-            fi
-            echo "Push attempt ${attempt} failed (likely concurrent push); rebasing."
-            git fetch origin "${BRANCH}"
-            git rebase "origin/${BRANCH}"
-          done
-
-          echo "Failed to publish after 3 attempts." >&2
-          exit 1
-            
-          
-        uses: actions/checkout@v4
-        with:
-          path: target
-          repository: ${{ inputs.target_repo }}
-          ref: ${{ inputs.target_branch }}
-          token: ${{ secrets.DAG_PUBLISH_TOKEN }}
-          fetch-depth: 0
-          
+    
