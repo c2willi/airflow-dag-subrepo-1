@@ -19,12 +19,12 @@ jobs:
     runs-on: ubuntu-latest
     steps: 
       - name: Checkout source repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: source
           
       - name: Checkout target repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           path: target
           repository: ${{ env.TARGET_REPO }}
